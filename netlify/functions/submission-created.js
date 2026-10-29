@@ -5,20 +5,30 @@
 // through Resend (https://resend.com).
 //
 // Environment variables (Netlify > Site configuration > Environment variables):
-//   RESEND_API_KEY      required, a Resend key with sending access
-//   WAITLIST_FROM       optional, overrides the sender shown below
-//   WAITLIST_REPLY_TO   optional, overrides the reply-to address shown below
+//   RESEND_API_KEY           required, a Resend key with sending access
+//   WAITLIST_FROM            optional, overrides the sender shown below
+//   WAITLIST_REPLY_TO        optional, overrides the reply-to address shown below
+//   WAITLIST_POSTAL_ADDRESS  strongly recommended. Canada's anti-spam law (CASL)
+//                            requires a mailing address in every commercial
+//                            email. A PO box or mailbox-service address is fine.
+//
+// Every email carries the CASL-required footer: who sent it, a mailing address,
+// and a way to unsubscribe (reply with "unsubscribe"; honour it within 10
+// business days by deleting the entry in Netlify > Forms).
 
+const SITE_URL = "https://youarestarstuff.com";
 const FROM =
   process.env.WAITLIST_FROM ||
   "Stew from You Are Star Stuff <stew@youarestarstuff.com>";
-const REPLY_TO = process.env.WAITLIST_REPLY_TO || "mjonsson1@gmail.com";
+const REPLY_TO = process.env.WAITLIST_REPLY_TO || "stew@youarestarstuff.com";
+const POSTAL =
+  process.env.WAITLIST_POSTAL_ADDRESS || "Toronto, Ontario, Canada";
 const SUBJECT = "Stew saw you sign up";
 
 // The "wants" checkboxes share one field name. Netlify may hand the values
 // back as an array, a single string, or one entry per box in
 // ordered_human_fields, so accept all three shapes.
-function wantsText(payload) {
+function wantsList(payload) {
   const data = payload.data || {};
   const fromOrdered = (payload.ordered_human_fields || [])
     .filter((f) => f && f.name === "wants" && f.value)
@@ -30,18 +40,28 @@ function wantsText(payload) {
   else if (data.wants) list = [String(data.wants)];
   else list = fromOrdered;
 
-  list = list.map((s) => s.trim()).filter(Boolean);
-  return list.length ? list.join(", ") : "everything";
+  return list.map((s) => String(s).trim()).filter(Boolean);
 }
 
 function emailBody(wants) {
+  // Only promise what they actually asked for. An empty list (possible if the
+  // form is posted without the page's own validation) gets no promise at all.
+  const asked = wants.length
+    ? [
+        `You asked to hear about: ${wants.join(", ")}.`,
+        "",
+        "When those are ready you'll get one email per item, and nothing in between.",
+        'No newsletters, no "just checking in."',
+      ]
+    : [
+        "You didn't tick anything to hear about, so we won't email you again",
+        "unless you reply and tell us what you'd like.",
+      ];
+
   return [
     "You're on the list. Stew noticed from his corner and is, as usual, amazed.",
     "",
-    `You asked to hear about: ${wants}.`,
-    "",
-    "When those are ready you'll get one email, and nothing in between.",
-    'No newsletters, no "just checking in."',
+    ...asked,
     "",
     "Until then, the episodes live here:",
     "https://www.youtube.com/@YouAreStarStuff",
@@ -49,7 +69,12 @@ function emailBody(wants) {
     "See you next episode.",
     "Michael, and Stew",
     "",
-    "youarestarstuff.com",
+    "--",
+    `You're getting this because this address was entered on ${SITE_URL}.`,
+    "If that wasn't you, reply \"remove\" and we'll delete it, no questions asked.",
+    'To unsubscribe at any time, reply with "unsubscribe". We act on it within 10 business days.',
+    `You Are Star Stuff · ${POSTAL}`,
+    `${SITE_URL} · ${REPLY_TO} · Privacy: ${SITE_URL}/privacy`,
   ].join("\n");
 }
 
@@ -90,8 +115,13 @@ exports.handler = async (event) => {
     console.error("submission-created: RESEND_API_KEY is not set");
     return ok("no api key");
   }
+  if (!process.env.WAITLIST_POSTAL_ADDRESS) {
+    console.warn(
+      "submission-created: WAITLIST_POSTAL_ADDRESS is not set; CASL requires a mailing address in every email",
+    );
+  }
 
-  const wants = wantsText(payload);
+  const wants = wantsList(payload);
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -104,6 +134,10 @@ exports.handler = async (event) => {
       reply_to: REPLY_TO,
       subject: SUBJECT,
       text: emailBody(wants),
+      headers: {
+        // Lets mail clients show a one-click unsubscribe control.
+        "List-Unsubscribe": `<mailto:${REPLY_TO}?subject=unsubscribe>`,
+      },
     }),
   });
 
@@ -117,10 +151,10 @@ exports.handler = async (event) => {
   }
 
   console.log(
-    `submission-created: confirmation sent to ${mask(to)} (${wants})`,
+    `submission-created: confirmation sent to ${mask(to)} (${wants.join(", ") || "nothing ticked"})`,
   );
   return ok("sent");
 };
 
 // Exposed for local testing only; Netlify ignores these.
-exports._internal = { wantsText, emailBody };
+exports._internal = { wantsList, emailBody };

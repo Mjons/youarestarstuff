@@ -4,13 +4,35 @@
 [functions]
   directory = "netlify/functions"
 
+# Security headers for every page. The site has no third-party scripts, fonts
+# or embeds, so the policy can be strict. 'unsafe-inline' is needed because the
+# page's own script and styles are inline.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
 [[headers]]
   for = "/img/*"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[redirects]]
   from = "https://www.youarestarstuff.com/*"
   to = "https://youarestarstuff.com/:splat"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200

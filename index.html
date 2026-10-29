@@ -3425,6 +3425,27 @@
         k = Math.min(1, d / 260);
       return [(dx / d) * k, (dy / d) * k];
     }
+    // Fade the whole canvas to transparent in a band along each edge, so no
+    // glow that reaches past the canvas ever shows as a hard rectangle.
+    function edgeFade(c, w, h, m) {
+      c.save();
+      c.globalCompositeOperation = "destination-in";
+      const bands = [
+        [0, 0, m, 0],
+        [w, 0, w - m, 0],
+        [0, 0, 0, m],
+        [0, h, 0, h - m],
+      ];
+      for (const [x0, y0, x1, y1] of bands) {
+        const g = c.createLinearGradient(x0, y0, x1, y1);
+        g.addColorStop(0, "rgba(0,0,0,0)");
+        g.addColorStop(0.5, "rgba(0,0,0,.55)");
+        g.addColorStop(1, "rgba(0,0,0,1)");
+        c.fillStyle = g;
+        c.fillRect(0, 0, w, h);
+      }
+      c.restore();
+    }
     function drawStewScene(S, t, o) {
       const { c } = S,
         sc = S.c.canvas.width / S.wL;
@@ -3494,6 +3515,7 @@
         }
         c.restore();
       }
+      edgeFade(c, S.wL, S.hL, Math.round(Math.min(S.wL, S.hL) * 0.12));
     }
     function drawLogo(t) {
       const x = logoC,

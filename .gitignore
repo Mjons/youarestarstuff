@@ -1,0 +1,14 @@
+# OS junk
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Windows reserved-name file that stray shell redirects can create
+nul
+
+# Netlify CLI local state
+.netlify/
+
+# Editor
+.vscode/
+.idea/

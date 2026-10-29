@@ -1,0 +1,13 @@
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[redirects]]
+  from = "https://www.youarestarstuff.com/*"
+  to = "https://youarestarstuff.com/:splat"
+  status = 301
+  force = true

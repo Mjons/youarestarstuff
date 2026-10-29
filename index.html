@@ -2560,20 +2560,47 @@
       );
       ctx.stroke();
     }
-    if (o.antenna !== false) stewAntenna(ctx, t, 1, -30.5);
+    if (o.antenna !== false) stewAntenna(ctx, t);
   }
-  function stewAntenna(ctx, t, bx = 1, by = -30.5, len = 7.5) {
+  // Stalk is rooted just inside the head's flat top (y ≈ -29.35 at x = 1) so it reads as attached,
+  // tapers from a fat root to a slim tip, and ends in a hot pulsing star.
+  function stewAntenna(ctx, t, bx = 1, by = -29, len = 9) {
     const ax = bx + 0.5 + Math.sin(t * 3) * 0.8,
-      ay = by - len;
-    ctx.strokeStyle = C.stew.shade;
-    ctx.lineWidth = 1.2;
-    ctx.lineCap = "round";
+      ay = by - len,
+      qx = bx + 1.5,
+      qy = by - len * 0.6;
+    const L = [],
+      R = [],
+      N = 10;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N,
+        v = 1 - u,
+        x = v * v * bx + 2 * v * u * qx + u * u * ax,
+        y = v * v * by + 2 * v * u * qy + u * u * ay,
+        dx = 2 * v * (qx - bx) + 2 * u * (ax - qx),
+        dy = 2 * v * (qy - by) + 2 * u * (ay - qy),
+        d = Math.hypot(dx, dy) || 1,
+        w = lerp(1.3, 0.55, u);
+      L.push([x - (dy / d) * w, y + (dx / d) * w]);
+      R.push([x + (dy / d) * w, y - (dx / d) * w]);
+    }
+    ctx.fillStyle = C.stew.shade;
     ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.quadraticCurveTo(bx + 1.5, by - len * 0.6, ax, ay);
-    ctx.stroke();
-    addGlow(ctx, ax, ay - 0.5, 8, C.stew.antGlow, 0.75);
-    sparkle(ctx, ax, ay - 0.5, 3.3, C.stew.spark, 1);
+    ctx.moveTo(L[0][0], L[0][1]);
+    for (let i = 1; i <= N; i++) ctx.lineTo(L[i][0], L[i][1]);
+    for (let i = N; i >= 0; i--) ctx.lineTo(R[i][0], R[i][1]);
+    ctx.closePath();
+    ctx.fill();
+    circle(ctx, ax, ay, 0.55, C.stew.shade);
+    // star: wide warm halo, bright inner halo, white-hot core, then the sparkle itself
+    const sx = ax,
+      sy = ay - 0.6,
+      pulse = 0.82 + 0.18 * Math.sin(t * 4.5);
+    addGlow(ctx, sx, sy, 16, C.stew.antGlow, 0.5 * pulse);
+    addGlow(ctx, sx, sy, 7.5, "#fff0a8", 0.95 * pulse);
+    addGlow(ctx, sx, sy, 3.4, "#ffffff", 0.85);
+    sparkle(ctx, sx, sy, 3.3, C.stew.spark, 1);
+    sparkle(ctx, sx, sy, 1.6, "#ffffff", 0.95);
   }
   // arm from shoulder (x0,y0) via control (cx,cy) to hand (x1,y1). near = in front of body (lighter pink)
   function stewArm(ctx, x0, y0, cx, cy, x1, y1, near = true) {
@@ -3406,19 +3433,12 @@
       const cx = S.wL / 2,
         base = S.hL * 0.86;
       if (o.pedestal) {
-        steppedPlates(
-          c,
-          cx,
-          base - 120,
-          [
-            [180, C.stew.body, 0.07],
-            [130, C.stew.body, 0.07],
-            [90, "#ffd76a", 0.08],
-          ],
-          0,
-          1,
-          1,
-        );
+        // soft halo behind Stew (pink wash, warm centre), no hard plate edges
+        c.save();
+        c.globalCompositeOperation = "lighter";
+        glow(c, cx, base - 145, 215, C.stew.body, 0.34);
+        glow(c, cx, base - 150, 120, "#ffd76a", 0.2);
+        c.restore();
         c.save();
         c.translate(cx, base + 6);
         c.scale(1, 0.36);
@@ -3441,7 +3461,8 @@
       });
       const wv = o.wave ? Math.sin(t * (o.fast ? 14 : 7)) * 0.35 : 0;
       stewArm(c, -9, -17, -13, -12, -13, -9, true);
-      const a = -2.15 + wv;
+      // raised hand rests beside the head (not across the eye) and waves from there
+      const a = -1.35 + wv;
       stewArm(
         c,
         9,

@@ -6,6 +6,10 @@ desktop.ini
 # Windows reserved-name file that stray shell redirects can create
 nul
 
+# Secrets (API keys live in Netlify environment variables, never in the repo)
+.env
+.env.*
+
 # Netlify CLI local state
 .netlify/
 
